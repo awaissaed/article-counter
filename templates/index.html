@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Article Report Utility</title>
+
+<style>
+body{font-family:Arial;padding:40px;background:#f4f6f8;}
+
+.drop{
+border:3px dashed #aaa;
+padding:30px;
+margin-bottom:20px;
+background:white;
+text-align:center;
+}
+
+button{padding:8px 12px;margin:3px;cursor:pointer;}
+
+table{
+border-collapse:collapse;
+width:90%;
+margin-top:20px;
+background:white;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:8px;
+}
+
+th{background:#333;color:white;}
+
+.activePage{
+background:#333;
+color:white;
+}
+
+/* Modal */
+#modal{
+display:none;
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:rgba(0,0,0,0.7);
+}
+
+#modalContent{
+background:white;
+width:80%;
+margin:50px auto;
+padding:20px;
+border-radius:8px;
+max-height:80%;
+overflow:auto;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>📊 Article Reporting Tool</h1>
+
+<div class="drop">
+Mapping Excel:
+<input type="file" id="mapping">
+</div>
+
+<div class="drop">
+Articles Excel:
+<input type="file" id="articles">
+</div>
+
+<button onclick="upload()">Process</button>
+
+<h2 id="summary"></h2>
+
+<h2>Company Report</h2>
+<table id="companyTable"></table>
+
+<h2>Site Report</h2>
+<table id="siteTable"></table>
+<div id="sitePagination"></div>
+
+<h3>Missing Mapping</h3>
+<ul id="missing"></ul>
+
+<!-- MODAL -->
+<div id="modal">
+  <div id="modalContent">
+    <button onclick="closeModal()">❌ Close</button>
+    <h2>🔍 Details</h2>
+    <table id="modalTable"></table>
+    <div id="modalPagination"></div>
+  </div>
+</div>
+
+<script>
+
+let allArticles = [];
+let filteredData = [];
+let currentPage = 1;
+let pageSize = 20;
+
+// Site pagination
+let siteData = [];
+let sitePage = 1;
+let sitePageSize = 10;
+
+
+function upload(){
+
+let fd = new FormData();
+fd.append("mapping", document.getElementById("mapping").files[0]);
+fd.append("articles", document.getElementById("articles").files[0]);
+
+fetch("/process",{method:"POST",body:fd})
+.then(r=>r.json())
+.then(d=>{
+
+document.getElementById("summary").innerHTML =
+"✅ Total Articles : "+d.total;
+
+allArticles = d.articles;
+siteData = d.site_table;
+
+makeCompanyTable(d.company_table);
+
+sitePage = 1;
+renderSiteTable();
+renderSitePagination();
+
+let miss = document.getElementById("missing");
+miss.innerHTML="";
+d.missing.forEach(m=> miss.innerHTML+=`<li>${m}</li>`);
+
+});
+}
+
+
+// ================= COMPANY TABLE =================
+function makeCompanyTable(data){
+
+let table = document.getElementById("companyTable");
+table.innerHTML="";
+
+let header="<tr>";
+Object.keys(data[0]).forEach(k=> header+=`<th>${k}</th>`);
+header+="<th>Details</th></tr>";
+
+table.innerHTML+=header;
+
+data.forEach(row=>{
+table.innerHTML+=`
+<tr>
+<td>${row.article_count}</td>
+<td>${row.company}</td>
+<td><button onclick="showDetails('company','${row.company}')">View</button></td>
+</tr>`;
+});
+}
+
+
+// ================= SITE TABLE PAGINATION =================
+function renderSiteTable(){
+
+let table = document.getElementById("siteTable");
+table.innerHTML="";
+
+let header="<tr><th>site</th><th>article_count</th><th>company</th><th>Details</th></tr>";
+table.innerHTML+=header;
+
+let start = (sitePage-1)*sitePageSize;
+let end = start + sitePageSize;
+
+siteData.slice(start,end).forEach(row=>{
+table.innerHTML+=`
+<tr>
+<td>${row.site}</td>
+<td>${row.article_count}</td>
+<td>${row.company}</td>
+<td><button onclick="showDetails('site','${row.site}')">View</button></td>
+</tr>`;
+});
+}
+
+
+function renderSitePagination(){
+
+let totalPages = Math.ceil(siteData.length / sitePageSize);
+let div = document.getElementById("sitePagination");
+
+div.innerHTML="";
+
+if(sitePage>1){
+div.innerHTML+=`<button onclick="goSitePage(${sitePage-1})">Prev</button>`;
+}
+
+for(let i=1;i<=totalPages;i++){
+div.innerHTML+=`<button class="${i===sitePage?'activePage':''}" onclick="goSitePage(${i})">${i}</button>`;
+}
+
+if(sitePage<totalPages){
+div.innerHTML+=`<button onclick="goSitePage(${sitePage+1})">Next</button>`;
+}
+}
+
+function goSitePage(p){
+sitePage = p;
+renderSiteTable();
+renderSitePagination();
+}
+
+
+// ================= MODAL =================
+function showDetails(type,value){
+
+currentPage = 1;
+
+filteredData = type==="company"
+? allArticles.filter(a=>a.company===value)
+: allArticles.filter(a=>a.site===value);
+
+document.getElementById("modal").style.display="block";
+
+renderModal();
+}
+
+function renderModal(){
+
+let table = document.getElementById("modalTable");
+table.innerHTML="<tr><th>URL</th><th>Site</th><th>Company</th></tr>";
+
+let start = (currentPage-1)*pageSize;
+let end = start + pageSize;
+
+filteredData.slice(start,end).forEach(a=>{
+table.innerHTML+=`
+<tr>
+<td><a href="${a.url}" target="_blank">${a.url}</a></td>
+<td>${a.site}</td>
+<td>${a.company}</td>
+</tr>`;
+});
+
+renderModalPagination();
+}
+
+function renderModalPagination(){
+
+let totalPages = Math.ceil(filteredData.length / pageSize);
+let div = document.getElementById("modalPagination");
+
+div.innerHTML="";
+
+if(currentPage>1){
+div.innerHTML+=`<button onclick="goPage(${currentPage-1})">Prev</button>`;
+}
+
+for(let i=1;i<=totalPages;i++){
+div.innerHTML+=`<button class="${i===currentPage?'activePage':''}" onclick="goPage(${i})">${i}</button>`;
+}
+
+if(currentPage<totalPages){
+div.innerHTML+=`<button onclick="goPage(${currentPage+1})">Next</button>`;
+}
+}
+
+function goPage(p){
+currentPage = p;
+renderModal();
+}
+
+function closeModal(){
+document.getElementById("modal").style.display="none";
+}
+
+</script>
+
+</body>
+</html>

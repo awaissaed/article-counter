@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+<head>
+
+<title>Article Report Utility</title>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body{
+font-family: Arial;
+padding:40px;
+background:#f4f6f8;
+}
+
+.drop{
+border:3px dashed #aaa;
+padding:30px;
+margin-bottom:20px;
+background:white;
+text-align:center;
+}
+
+button{
+padding:12px 20px;
+font-size:16px;
+cursor:pointer;
+}
+
+table{
+border-collapse:collapse;
+width:80%;
+margin-top:20px;
+background:white;
+}
+
+th,td{
+border:1px solid #ddd;
+padding:8px;
+}
+
+th{
+background:#333;
+color:white;
+cursor:pointer;
+}
+
+.progress{
+width:300px;
+background:#ddd;
+margin-top:20px;
+}
+
+.bar{
+width:0%;
+height:20px;
+background:green;
+}
+</style>
+
+</head>
+
+<body>
+
+<h1>📊 Article Reporting Tool</h1>
+
+<div class="drop">
+Websites Mapping Excel:
+<input type="file" id="mapping">
+</div>
+
+<div class="drop">
+Published Articles Excel:
+<input type="file" id="articles">
+</div>
+
+<button id="processBtn" onclick="upload()" >Process</button>
+
+<div class="progress">
+<div class="bar" id="bar"></div>
+</div>
+
+<h2 id="summary"></h2>
+
+
+<h2>Company Report</h2>
+<table id="companyTable"></table>
+<h2>Site Report</h2>
+<table id="siteTable"></table>
+<h3>Missing Mapping</h3>
+<ul id="missing"></ul>
+
+
+<br>
+
+
+<script>
+
+function sortTable(tableId, col){
+let table = document.getElementById(tableId);
+let rows = Array.from(table.rows).slice(1);
+
+rows.sort((a,b)=>
+b.cells[col].innerText - a.cells[col].innerText
+);
+
+rows.forEach(r=>table.appendChild(r));
+}
+
+function makeTable(id,data){
+
+let table = document.getElementById(id);
+table.innerHTML="";
+
+if(data.length==0) return;
+
+let header="<tr>";
+Object.keys(data[0]).forEach((k,i)=>{
+header+=`<th onclick="sortTable('${id}',${i})">${k}</th>`;
+});
+header+="</tr>";
+
+table.innerHTML+=header;
+
+data.forEach(row=>{
+let tr="<tr>";
+Object.values(row).forEach(v=>{
+tr+=`<td>${v ?? ""}</td>`;
+});
+tr+="</tr>";
+table.innerHTML+=tr;
+});
+}
+
+function upload(){
+
+let map = document.getElementById("mapping").files[0];
+let art = document.getElementById("articles").files[0];
+
+let fd = new FormData();
+fd.append("mapping", map);
+fd.append("articles", art);
+
+let bar = document.getElementById("bar");
+
+let interval = setInterval(()=>{
+bar.style.width = (parseInt(bar.style.width||0)+10)+"%";
+},200);
+
+fetch("/process",{
+method:"POST",
+body:fd
+})
+.then(r=>r.json())
+.then(d=>{
+
+clearInterval(interval);
+bar.style.width="100%";
+
+document.getElementById("summary").innerHTML =
+"✅ Total Articles : "+d.total;
+
+makeTable("siteTable", d.site_table);
+makeTable("companyTable", d.company_table);
+
+let miss = document.getElementById("missing");
+miss.innerHTML="";
+d.missing.forEach(m=>{
+miss.innerHTML+=`<li>${m}</li>`;
+});
+
+});
+}
+
+function download(){
+window.location="/download";
+}
+
+</script>
+
+</body>
+</html>
