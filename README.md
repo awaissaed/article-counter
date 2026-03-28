@@ -12,8 +12,7 @@ Features
 ✅ Download CSV reports
 ✅ Automatic URL normalization (ensures https:// is prefixed)
 ✅ Total articles summary
-
-The Article Reporting Utility is a web-based tool to analyze and report published articles across multiple websites and companies. It generates interactive company and site-level reports, lets you view detailed articles in a popup with pagination, highlights missing mappings, and allows exporting CSV reports.Installation
+Installation
 Clone this repository:
 git clone https://github.com/your-username/article-reporting-utility.git
 cd article-reporting-utility
